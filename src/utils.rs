@@ -1,3 +1,5 @@
+use crate::models::{Instance, Schedule};
+
 pub fn verify_instance(content: &str) -> Result<(), String> {
     let mut lines = content.lines();
 
@@ -96,4 +98,20 @@ pub fn verify_instance(content: &str) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+pub fn calculate_score(schedule: Schedule, instance: Instance) -> String {
+    let mut score = 0;
+    let mut output = String::new();
+    let mut task_string = String::new();
+
+    for (start_time, task_id) in schedule.tasks {
+        score += start_time + instance.tasks[task_id as usize].processing_time;
+        task_string += &format!("{} ", task_id);
+    }
+
+    output += &format!("{}\n", score);
+    output += &task_string;
+
+    output
 }

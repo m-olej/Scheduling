@@ -7,6 +7,7 @@ pub struct Task {
     pub processing_time: u32,
     pub switch_time: HashMap<u32, u32>, // (task_id, switch_time)
 }
+
 pub struct Instance {
     pub n: usize,
     pub tasks: Vec<Task>,
@@ -35,12 +36,6 @@ impl Instance {
 
         let mut tasks = Vec::with_capacity(n);
         for (id, line) in lines.enumerate() {
-            println!(
-                "line {}:  n-1 = {} ; d - ( n+1 ) = {}",
-                id,
-                n - 1,
-                id as u32 - (n as u32 + 1)
-            );
             if id as u32 <= n as u32 - 1 {
                 let mut parts = line.split_whitespace();
                 let processing_time = parts.next().unwrap_or("0").parse().unwrap_or(0);
@@ -54,7 +49,7 @@ impl Instance {
                     switch_time,
                 });
             } else {
-                let task_id = id - (n + 1);
+                let task_id = id - n;
                 let mut parts = line.split_whitespace();
                 for j in 0..n {
                     let setup_time = parts.next().unwrap_or("0").parse().unwrap_or(0);
@@ -99,6 +94,19 @@ impl Instance {
     }
 }
 
-// pub struct Schedule {
-//     tasks: Vec<(u32, Task)>, // (start_time, Task)
-// }
+pub struct Schedule {
+    pub duration: u32,
+    pub score: u32,
+    pub tasks: Vec<(u32, u32)>, // (start_time, task_id)
+}
+
+impl std::fmt::Debug for Schedule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Schedule\nTook {}ms\n{}", self.duration, self.score)?;
+        for (_start_time, task_id) in &self.tasks {
+            write!(f, "{} ", task_id)?;
+        }
+
+        Ok(())
+    }
+}

@@ -3,4 +3,4 @@ pub mod utils;
 
 // looks not quite good
 pub mod models;
-pub use models::{Instance, Task};
+pub use models::{Instance, Schedule, Task};
