@@ -1,5 +1,6 @@
 use scheduling::file_handler;
-use scheduling::problem_1::models::{Instance, Schedule, Task};
+use scheduling::problem_1::grasp::generate_initial_input;
+use scheduling::problem_1::models::{Instance, Schedule};
 use scheduling::problem_1::verify::{calculate_score, verify_instance};
 use std::time::Instant;
 
@@ -31,13 +32,11 @@ fn main() {
     // Readonly parse instance
     let instance = Instance::read(&file_content);
 
-    // Mutable algo structures
-    let mut schedule: Schedule = Schedule::new(instance.tasks.iter().collect());
-
     let start_time = Instant::now();
     // Start algo
 
-    schedule.tasks.sort_by_key(|t| t.ready_time);
+    // Mutable algo structures
+    let mut schedule: Schedule = generate_initial_input(instance.tasks.iter().collect());
 
     // End algo
     let duration = start_time.elapsed();
@@ -46,6 +45,12 @@ fn main() {
 
     schedule.set_duration(duration.as_millis());
     schedule.set_score(score);
+
+    println!(
+        "Generated schedule in {} ms\n{}",
+        duration.as_millis(),
+        schedule.format()
+    );
 
     file_handler::write_to_file(output_file, schedule.format());
 }

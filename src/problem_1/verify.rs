@@ -1,4 +1,4 @@
-use crate::problem_1::models::{Instance, Schedule, Task};
+use crate::problem_1::models::{Instance, Task};
 
 pub fn verify_instance(content: &str) -> Result<(), String> {
     let mut lines = content.lines();
