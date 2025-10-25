@@ -110,7 +110,7 @@ pub fn calculate_score(tasks: &Vec<&Task>) -> u32 {
             curr_time += task.ready_time;
         } else {
             let prev_task = &tasks[order - 1];
-            let switch_time = prev_task.switch_time.get(&task.id).unwrap_or(&0);
+            let switch_time = prev_task.switch_time[task.id as usize];
             score += (curr_time + switch_time).max(task.ready_time);
             curr_time = (curr_time + switch_time).max(task.ready_time);
         }

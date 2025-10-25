@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::Write;
 
 #[derive(Debug, Clone)]
@@ -6,7 +5,7 @@ pub struct Task {
     pub id: u32,
     pub ready_time: u32,
     pub processing_time: u32,
-    pub switch_time: HashMap<u32, u32>, // (task_id, switch_time)
+    pub switch_time: Vec<u32>,
 }
 
 pub struct Instance {
@@ -41,7 +40,7 @@ impl Instance {
                 let mut parts = line.split_whitespace();
                 let processing_time = parts.next().unwrap_or("0").parse().unwrap_or(0);
                 let ready_time = parts.next().unwrap_or("0").parse().unwrap_or(0);
-                let switch_time = HashMap::new();
+                let switch_time = vec![0; n];
 
                 tasks.push(Task {
                     id: id as u32,
@@ -54,7 +53,7 @@ impl Instance {
                 let mut parts = line.split_whitespace();
                 for j in 0..n {
                     let setup_time = parts.next().unwrap_or("0").parse().unwrap_or(0);
-                    tasks[task_id].switch_time.insert(j as u32, setup_time);
+                    tasks[task_id].switch_time[j] = setup_time;
                 }
             }
         }
@@ -80,7 +79,7 @@ impl Instance {
         // Setup times (s_ij)
         for i in 0..self.n {
             for j in 0..self.n {
-                let setup_time = *self.tasks[i].switch_time.get(&(j as u32)).unwrap();
+                let setup_time = self.tasks[i].switch_time[j];
                 write!(
                     &mut output,
                     "{}{}",

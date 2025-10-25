@@ -1,7 +1,6 @@
 use crate::problem_1::models::{Instance, Task};
 use rand::rngs::ThreadRng;
 use rand::{rng, Rng};
-use std::collections::HashMap;
 
 const MIN_P: u32 = 1;
 const MAX_P: u32 = 35;
@@ -42,16 +41,11 @@ pub fn generate_instance(n: usize) -> Instance {
         .collect();
 
     let tasks: Vec<Task> = (0..n)
-        .map(|i| {
-            let switch_time_map: HashMap<u32, u32> =
-                (0..n).map(|j| (j as u32, setup_times[i][j])).collect();
-
-            Task {
-                id: i as u32,
-                ready_time: ready_times[i],
-                processing_time: processing_times[i],
-                switch_time: switch_time_map,
-            }
+        .map(|i| Task {
+            id: i as u32,
+            ready_time: ready_times[i],
+            processing_time: processing_times[i],
+            switch_time: setup_times[i].clone(),
         })
         .collect();
 
