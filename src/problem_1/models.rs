@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 
+use rand::rand_core::le;
+
+#[derive(Debug, Clone)]
 pub struct Task {
     pub id: u32,
     pub ready_time: u32,
@@ -94,19 +97,35 @@ impl Instance {
     }
 }
 
-pub struct Schedule {
-    pub duration: u32,
-    pub score: u32,
-    pub tasks: Vec<(u32, u32)>, // (start_time, task_id)
+pub struct Schedule<'a> {
+    duration: u128,
+    score: u32,
+    pub tasks: Vec<&'a Task>, // (start_time, task_ref)
 }
 
-impl std::fmt::Debug for Schedule {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Schedule\nTook {}ms\n{}", self.duration, self.score)?;
-        for (_start_time, task_id) in &self.tasks {
-            write!(f, "{} ", task_id)?;
+impl<'a> Schedule<'a> {
+    pub fn new(tasks: Vec<&'a Task>) -> Self {
+        Self {
+            duration: 0,
+            score: 0,
+            tasks: tasks,
+        }
+    }
+    pub fn set_score(&mut self, score: u32) {
+        self.score = score;
+    }
+
+    pub fn set_duration(&mut self, duration: u128) {
+        self.duration = duration;
+    }
+
+    pub fn format(&self) -> String {
+        let mut output = String::new();
+        output += format!("{}\n", self.score).as_str();
+        for task in &self.tasks {
+            output += format!("{} ", task.id).as_str();
         }
 
-        Ok(())
+        output
     }
 }
