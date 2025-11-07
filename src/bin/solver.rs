@@ -1,8 +1,9 @@
 use scheduling::file_handler;
-use scheduling::problem_1::grasp::generate_initial_input;
-use scheduling::problem_1::models::{Instance, Schedule};
+use scheduling::problem_1::algo::grasp::generate_initial_input;
+use scheduling::problem_1::algo::vns::VnsSolver;
+use scheduling::problem_1::models::Instance;
 use scheduling::problem_1::verify::{calculate_score, verify_instance};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 fn main() {
     let args = std::env::args().collect::<Vec<String>>();
@@ -32,25 +33,33 @@ fn main() {
     // Readonly parse instance
     let instance = Instance::read(&file_content);
 
+    let time_limit = Duration::new(instance.n as u64 / 10, 0);
+    println!(
+        "Solving instance with {} tasks and time limit of {} seconds",
+        instance.n,
+        time_limit.as_secs()
+    );
     let start_time = Instant::now();
     // Start algo
 
     // Mutable algo structures
-    let mut schedule: Schedule = generate_initial_input(instance.tasks.iter().collect());
+    let initial_solution = generate_initial_input(instance.tasks.iter().collect());
+    let vns_solver = VnsSolver::new(&instance.tasks, time_limit);
+    let mut solution = vns_solver.solve(initial_solution, start_time);
 
     // End algo
     let duration = start_time.elapsed();
 
-    let score = calculate_score(&schedule.tasks);
+    let score = calculate_score(&solution.tasks);
 
-    schedule.set_duration(duration.as_millis());
-    schedule.set_score(score);
+    solution.set_duration(duration.as_millis());
+    solution.set_score(score);
 
     println!(
-        "Generated schedule in {} ms\n{}",
+        "Generated Solution in {} ms\n{}",
         duration.as_millis(),
-        schedule.format()
+        solution.format()
     );
 
-    file_handler::write_to_file(output_file, schedule.format());
+    file_handler::write_to_file(output_file, solution.format());
 }

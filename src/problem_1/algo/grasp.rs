@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::problem_1::models::{Schedule, Task};
+use crate::problem_1::models::Task;
 use rand::{rng, Rng};
 
 const ALPHA: f32 = 0.3;
@@ -25,7 +25,7 @@ fn calculate_append_score(
     score
 }
 
-pub fn generate_initial_input(tasks: Vec<&Task>) -> Schedule {
+pub fn generate_initial_input(tasks: Vec<&Task>) -> Vec<u32> {
     let mut rng = rng();
 
     let mut initial_schedule: Vec<&Task> = Vec::with_capacity(tasks.len());
@@ -72,5 +72,7 @@ pub fn generate_initial_input(tasks: Vec<&Task>) -> Schedule {
         scheduled_tasks[picked_task_id] = true;
     }
 
-    Schedule::new(initial_schedule)
+    let solution = initial_schedule.iter().map(|t| t.id).collect();
+
+    solution
 }

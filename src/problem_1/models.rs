@@ -94,13 +94,13 @@ impl Instance {
     }
 }
 
-pub struct Schedule<'a> {
+pub struct Solution<'a> {
     duration: u128,
     score: u32,
     pub tasks: Vec<&'a Task>, // (start_time, task_ref)
 }
 
-impl<'a> Schedule<'a> {
+impl<'a> Solution<'a> {
     pub fn new(tasks: Vec<&'a Task>) -> Self {
         Self {
             duration: 0,
@@ -108,6 +108,7 @@ impl<'a> Schedule<'a> {
             tasks: tasks,
         }
     }
+
     pub fn set_score(&mut self, score: u32) {
         self.score = score;
     }

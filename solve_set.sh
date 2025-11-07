@@ -2,7 +2,7 @@
 
 if [ "$#" -ne 3 ]; then
     echo "Illegal number of parameters"
-    echo "Usage: ./solve_set.sh <dataset_directory> <solver_executable>"
+    echo "Usage: ./solve_set.sh <dataset_directory> <output_directory> <solver_executable>"
     exit 1
 fi
 
