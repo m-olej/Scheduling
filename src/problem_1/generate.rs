@@ -1,4 +1,4 @@
-use crate::problem_1::models::{Instance, Task};
+use crate::problem_1::models::{Instance, InstanceMetrics, Task};
 use rand::rngs::ThreadRng;
 use rand::{rng, Rng};
 
@@ -52,5 +52,6 @@ pub fn generate_instance(n: usize) -> Instance {
     Instance {
         n: tasks.len(),
         tasks: tasks,
+        metrics: InstanceMetrics::default(),
     }
 }

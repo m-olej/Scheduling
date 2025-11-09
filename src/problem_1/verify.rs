@@ -100,23 +100,23 @@ pub fn verify_instance(content: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn calculate_score(tasks: &Vec<&Task>) -> u32 {
-    let mut score = 0;
+pub fn calculate_score(tasks: &Vec<&Task>) -> u64 {
+    let mut score: u64 = 0;
     let mut curr_time = 0;
 
     for (order, task) in tasks.iter().enumerate() {
         if order == 0 {
-            score += task.ready_time;
-            curr_time += task.ready_time;
+            score += task.ready_time as u64;
+            curr_time += task.ready_time as u64;
         } else {
             let prev_task = &tasks[order - 1];
-            let switch_time = prev_task.switch_time[task.id as usize];
-            score += (curr_time + switch_time).max(task.ready_time);
-            curr_time = (curr_time + switch_time).max(task.ready_time);
+            let switch_time = prev_task.switch_time[task.id as usize] as u64;
+            score += (curr_time + switch_time).max(task.ready_time as u64);
+            curr_time = (curr_time + switch_time).max(task.ready_time as u64);
         }
 
-        score += task.processing_time;
-        curr_time += task.processing_time;
+        score += task.processing_time as u64;
+        curr_time += task.processing_time as u64;
     }
 
     score
@@ -166,14 +166,14 @@ pub fn verify_solution(content: &str, instance: &Instance) -> Result<(), String>
             instance
                 .tasks
                 .iter()
-                .find(|t| t.id == id)
+                .find(|t| t.id == id - 1)
                 .ok_or(format!("Task ID {} in solution not found in instance.", id))
         })
         .collect::<Result<_, _>>()?;
 
     let calculated_score = calculate_score(&scheduled_tasks);
 
-    if calculated_score != reported_score {
+    if calculated_score != reported_score as u64 {
         return Err(format!(
             "Reported score ({}) does not match calculated score ({}).",
             reported_score, calculated_score

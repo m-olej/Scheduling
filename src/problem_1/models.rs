@@ -1,4 +1,7 @@
-use std::fmt::Write;
+use log::debug;
+use std::fmt::{Display, Write};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
 pub struct Task {
@@ -11,6 +14,7 @@ pub struct Task {
 pub struct Instance {
     pub n: usize,
     pub tasks: Vec<Task>,
+    pub metrics: InstanceMetrics,
 }
 
 impl std::fmt::Debug for Instance {
@@ -32,7 +36,7 @@ impl Instance {
         let mut lines = file_content.lines();
 
         let n = lines.next().unwrap_or("0").parse().unwrap_or(0);
-        println!("Number of tasks (n): {}", n);
+        debug!("Number of tasks (n): {}", n);
 
         let mut tasks = Vec::with_capacity(n);
         for (id, line) in lines.enumerate() {
@@ -58,7 +62,46 @@ impl Instance {
             }
         }
 
-        return Self { n: n, tasks: tasks };
+        return Self {
+            n: n,
+            tasks: tasks,
+            metrics: InstanceMetrics {
+                n: 0,
+                avg_s: 0.0,
+                avg_p: 0.0,
+                sts: 0.0,
+            },
+        };
+    }
+
+    pub fn analyze(&mut self) {
+        let n = self.n;
+        let avg_p = self
+            .tasks
+            .iter()
+            .map(|t| t.processing_time as f64)
+            .sum::<f64>()
+            / n as f64;
+
+        let avg_s = self
+            .tasks
+            .iter()
+            .map(|t| {
+                t.switch_time
+                    .iter()
+                    .map(|st| if *st != t.id { *st as f64 } else { 0.0 })
+                    .sum::<f64>()
+            })
+            .sum::<f64>()
+            / (n * (n - 1)) as f64;
+
+        let sts = avg_s / avg_p;
+        self.metrics = InstanceMetrics {
+            n,
+            avg_s,
+            avg_p,
+            sts,
+        };
     }
 
     pub fn format(&self) -> String {
@@ -94,9 +137,10 @@ impl Instance {
     }
 }
 
+#[derive(Debug)]
 pub struct Solution<'a> {
     duration: u128,
-    score: u32,
+    score: u64,
     pub tasks: Vec<&'a Task>, // (start_time, task_ref)
 }
 
@@ -109,12 +153,20 @@ impl<'a> Solution<'a> {
         }
     }
 
-    pub fn set_score(&mut self, score: u32) {
+    pub fn set_score(&mut self, score: u64) {
         self.score = score;
+    }
+
+    pub fn get_score(&self) -> u64 {
+        self.score
     }
 
     pub fn set_duration(&mut self, duration: u128) {
         self.duration = duration;
+    }
+
+    pub fn get_duration(&self) -> u128 {
+        self.duration
     }
 
     pub fn format(&self) -> String {
@@ -125,5 +177,81 @@ impl<'a> Solution<'a> {
         }
 
         output
+    }
+}
+
+#[derive(Clone)]
+pub struct GlobalBest<'a> {
+    pub solution: Arc<Mutex<Solution<'a>>>,
+    pub score: Arc<AtomicU64>,
+}
+
+impl<'a> GlobalBest<'a> {
+    /// Tworzy nowy współdzielony stan z początkowego rozwiązania.
+    pub fn new(initial_solution: Solution<'a>) -> Self {
+        let initial_score = initial_solution.score;
+        Self {
+            score: Arc::new(AtomicU64::new(initial_score)),
+            solution: Arc::new(Mutex::new(initial_solution)),
+        }
+    }
+
+    /// Szybka, bezblokadowa funkcja do odczytu najlepszego wyniku (UB).
+    /// Będzie wywoływana tysiące razy na sekundę przez wątki do przycinania.
+    pub fn get_best_score(&self) -> u64 {
+        // `Ordering::Relaxed` jest najszybsze i w zupełności wystarczające
+        // dla sprawdzania granicy w B&B.
+        self.score.load(Ordering::Relaxed)
+    }
+
+    /// Funkcja wywoływana, gdy wątek znajdzie *potencjalnie* lepsze rozwiązanie.
+    pub fn try_update_solution(&self, new_solution: Solution<'a>) {
+        let new_score = new_solution.score;
+
+        // Szybkie sprawdzenie atomowe (bez blokady)
+        if new_score < self.get_best_score() {
+            // Nasz wynik *może* być lepszy. Teraz musimy zdobyć blokadę,
+            // aby zaktualizować pełne rozwiązanie.
+            let mut solution_guard = self.solution.lock().unwrap();
+
+            // Musimy sprawdzić ponownie *po* uzyskaniu blokady,
+            // ponieważ inny wątek mógł nas ubiec, gdy czekaliśmy.
+            if new_score < solution_guard.score {
+                // Potwierdzone: nasz wynik jest nowym najlepszym.
+                // Aktualizujemy pełne rozwiązanie wewnątrz Mutexa.
+                *solution_guard = new_solution;
+
+                // Na koniec aktualizujemy wartość atomową, aby wszystkie
+                // inne wątki natychmiast zobaczyły nowy, lepszy wynik.
+                self.score.store(new_score, Ordering::Relaxed);
+            }
+        }
+        // Jeśli new_score >= current_best_score, nic nie robimy.
+    }
+
+    /// Funkcja do wywołania na samym końcu, aby pobrać finałowe rozwiązanie.
+    pub fn into_inner(self) -> Solution<'a> {
+        Arc::try_unwrap(self.solution)
+            .expect("Powinien być jedynym właścicielem po zakończeniu wątków")
+            .into_inner()
+            .expect("Mutex nie powinien być zatruty (poisoned)")
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct InstanceMetrics {
+    pub n: usize,
+    pub avg_s: f64, // avg processing time
+    pub avg_p: f64, // avg ready time
+    pub sts: f64,   // setup time severity
+}
+
+impl Display for InstanceMetrics {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Instance Metrics:\n - Number of tasks (n): {}\n - Average processing time (avg_p): {:.2}\n - Average switch time (avg_s): {:.2}\n - Switch Time Severity (sts): {:.4}",
+            self.n, self.avg_p, self.avg_s, self.sts
+        )
     }
 }

@@ -1,4 +1,4 @@
-use super::neighborhood::{Neighborhood, Relocate, Swap};
+use super::neighborhood::{BlockMove, Neighborhood, Relocate, Swap, TwoOpt};
 use super::schedule::Schedule;
 use crate::problem_1::models::{Solution, Task};
 use std::time::{Duration, Instant};
@@ -15,7 +15,8 @@ impl<'a> VnsSolver<'a> {
         let neighborhoods: Vec<Box<dyn Neighborhood>> = vec![
             Box::new(Swap {}),
             Box::new(Relocate {}),
-            // implement 2-opt if needed
+            Box::new(TwoOpt {}),
+            Box::new(BlockMove {}),
         ];
         Self {
             neighborhoods,
@@ -30,7 +31,7 @@ impl<'a> VnsSolver<'a> {
             if run_time.elapsed() >= self.time_limit {
                 break;
             }
-            // println!(" VND iteration with neighborhood {}", k);
+            println!(" VND iteration with neighborhood {}", k);
 
             let improved = self.neighborhoods[k].find_best_move(schedule);
             if improved {
@@ -56,24 +57,24 @@ impl<'a> VnsSolver<'a> {
                 if run_time.elapsed() >= self.time_limit {
                     break;
                 }
-                // println!("VNS iteration with neighborhood {}", k);
+                println!("VNS iteration with neighborhood {}", k);
                 // 1. Shaking
                 let mut working_schedule = schedule.clone();
                 self.neighborhoods[k].shake(&mut working_schedule, k);
                 working_schedule.calculate_full_score();
-                // println!("Shaken solution score: {}", working_schedule.score);
+                println!("Shaken solution score: {}", working_schedule.score);
                 // 2. Intensification
                 self.variable_neighborhood_descent(&mut working_schedule, run_time);
-                // println!("After VND solution score: {}", working_schedule.score);
+                println!("After VND solution score: {}", working_schedule.score);
 
                 // 3. Move or not
                 if working_schedule.score < schedule.score {
                     schedule = working_schedule;
-                    // println!("New best solution score: {}", schedule.score);
+                    println!("New best solution score: {}", schedule.score);
                     k = 0; // restart from the first neighborhood
                 } else {
                     k += 1; // move to the next neighborhood
-                            // println!("No improvement, moving to neighborhood {}", k);
+                    println!("No improvement, moving to neighborhood {}", k);
                 }
             }
         }

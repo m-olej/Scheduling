@@ -1,4 +1,4 @@
-pub mod grasp;
-pub mod neighborhood;
-pub mod schedule;
-pub mod vns;
+pub mod bnb;
+pub mod bounds;
+pub mod core;
+pub mod heuristics;
