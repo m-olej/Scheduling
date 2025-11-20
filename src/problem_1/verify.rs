@@ -166,7 +166,7 @@ pub fn verify_solution(content: &str, instance: &Instance) -> Result<(), String>
             instance
                 .tasks
                 .iter()
-                .find(|t| t.id == id - 1)
+                .find(|t| t.id == id)
                 .ok_or(format!("Task ID {} in solution not found in instance.", id))
         })
         .collect::<Result<_, _>>()?;
