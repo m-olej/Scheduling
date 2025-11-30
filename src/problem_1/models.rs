@@ -3,6 +3,8 @@ use std::fmt::{Display, Write};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use crate::SchedulableSolution;
+
 #[derive(Debug, Clone)]
 pub struct Task {
     pub id: u32,
@@ -142,6 +144,20 @@ pub struct Solution<'a> {
     duration: u128,
     score: u64,
     pub tasks: Vec<&'a Task>, // (start_time, task_ref)
+}
+
+impl<'a> SchedulableSolution for Solution<'a> {
+    fn to_file(&self, path: &std::path::Path) -> Result<()> {
+        use std::fs::File;
+        use std::io::Write;
+
+        let mut file = File::create(path)?;
+        let content = self.format();
+        file.write_all(content.as_bytes())?;
+        Ok(())
+    }
+
+    fn from_file(path: &std::path::Path) -> crate::Result<Self> {}
 }
 
 impl<'a> Solution<'a> {

@@ -47,3 +47,9 @@ J_5,1 J_5,2 ...
 * Limit czasu: $n/10$ sekund
 * mogą być > 1; b_k = 1
 * program ma liczyć na floatach, ale do wyniki całkowite (post-factum)
+
+## Kalkulacja kryterium
+
+$$
+Y_i = \frac{\min{\{\max{\{C_j - d_j, 0\}}, p_j * b_i\}}}{b_i}
+$$
