@@ -1,8 +1,8 @@
 use clap::{command, Parser};
+use log::info;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 pub mod file_handler;
-pub mod problem_1;
 pub mod problem_2;
 
 ///
@@ -13,14 +13,14 @@ pub mod problem_2;
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 /// Data Model Traits (for loading/saving)
-/// We assume all your problems will need to be serializable/deserializable
 pub trait SchedulableProblem: Sized {
     fn from_file(path: &Path) -> Result<Self>;
     fn to_file(&self, path: &Path) -> Result<()>;
 }
 
 pub trait SchedulableSolution: Sized {
-    fn calculate_score(&self) -> i64;
+    type Problem: SchedulableProblem;
+    fn calculate_score(&self, instance: &Self::Problem) -> i64;
     fn from_file(path: &Path) -> Result<Self>;
     fn to_file(&self, path: &Path) -> Result<()>;
 }
@@ -32,15 +32,18 @@ pub trait ProblemGenerator {
     fn generate(&self, size: usize, seed: u64) -> Self::Problem;
 }
 
-pub trait Verifier {
+pub trait ProblemVerifier {
     type Problem: SchedulableProblem;
     type Solution: SchedulableSolution;
 
-    /// Return true if valid, false otherwise
-    fn verify(&self, problem: &Self::Problem, solution: &Self::Solution) -> bool;
+    /// Validates if solution to an instance is valid
+    fn verify_solution(&self, problem: &Self::Problem, solution: &Self::Solution) -> bool;
+
+    /// Validates if the instance is valid
+    fn verify_instance(&self, instance: &Self::Problem) -> bool;
 }
 
-pub trait Solver<'a> {
+pub trait ProblemSolver<'a> {
     type Problem: SchedulableProblem;
     type Solution: SchedulableSolution;
 
@@ -56,43 +59,109 @@ struct SolverArgs {
     #[arg(short, long)]
     input_instance: PathBuf,
 
-    /// Solution output directory
+    /// Solution output file path
     #[arg(short, long)]
-    output_dir: PathBuf,
+    output_file: PathBuf,
 }
 
+/// Generator program for scheduling problems
+///
+/// This function runs a generator implementation that creates problem instances
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about)]
 struct GeneratorArgs {
-    /// Size of the instance to generate
+    /// Size of the instance to generate (number of jobs)
     #[arg(short, long)]
     size: usize,
-
     /// Output directory
     #[arg(short, long)]
     output_dir: PathBuf,
-
     /// Optional seed argument
     seed: Option<u64>,
 }
 
+/// Verifier program for scheduling problems
+///
+/// Can check validity of instances and solutions of a given scheduling problem
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about)]
 struct VerifierArgs {
+    /// path to the problem instance file
     #[arg(short, long)]
-    input: PathBuf,
-    #[arg(short, long)]
-    output: PathBuf,
+    instance_file: PathBuf,
+    /// path to the solution file
+    solution_file: Option<PathBuf>,
+}
+
+pub fn run_generator<G>(generator_implementation: G)
+where
+    G: ProblemGenerator,
+{
+    let args = GeneratorArgs::parse();
+    // handle optional seed
+    let seed = match args.seed {
+        Some(seed) => seed,
+        None => rand::random(),
+    };
+
+    println!(
+        "Running generator with size: {}, seed: {}, output: {:?}",
+        args.size, seed, args.output_dir
+    );
+
+    let instance = generator_implementation.generate(args.size, seed);
+    instance
+        .to_file(&args.output_dir)
+        .expect("Failed to save generated instance to file");
+    println!("Generated instance saved to {:?}", args.output_dir);
+}
+
+pub fn run_verifier<V>(verifier_implementation: V)
+where
+    V: ProblemVerifier,
+{
+    let args = VerifierArgs::parse();
+    println!(
+        "Running verifier with instance: {:?}, solution: {:?}",
+        args.instance_file, args.solution_file
+    );
+
+    // Load problem
+    let problem =
+        V::Problem::from_file(&args.instance_file).expect("Failed to load problem from file");
+
+    // Load solution if provided
+    match args.solution_file {
+        Some(ref solution_file) => {
+            // check both instance and solution validity
+            let solution =
+                V::Solution::from_file(solution_file).expect("Failed to load solution from file");
+            if verifier_implementation.verify_solution(&problem, &solution) {
+                println!("Both instance and solution are valid");
+            } else {
+                println!("Instance or solution is invalid");
+            }
+        }
+        None => {
+            // check only instance validity
+            if verifier_implementation.verify_instance(&problem) {
+                println!("Instance is valid");
+            } else {
+                println!("Instance is invalid");
+            }
+            return;
+        }
+    };
 }
 
 pub fn run_solver<S>(solver_implementation: S)
 where
-    S: for<'a> Solver<'a>,
+    S: for<'a> ProblemSolver<'a>,
 {
     let args = SolverArgs::parse();
-    println!(
+    info!(
         "Running solver with input: {:?}, output: {:?}",
-        args.input_instance, args.output_dir
+        args.input_instance, args.output_file
     );
 
     // Load problem
@@ -104,52 +173,8 @@ where
 
     // Save solution
     solution
-        .to_file(&args.output_dir)
+        .to_file(&args.output_file)
         .expect("Failed to save solution to file");
 
-    println!("Solution saved to {:?}", args.output_dir);
-}
-
-pub fn run_generator<G>(generator_implementation: G)
-where
-    G: ProblemGenerator,
-{
-    let args = GeneratorArgs::parse();
-    println!(
-        "Running generator with size: {}, seed: {}, output: {:?}",
-        args.size,
-        Some(args.seed.unwrap_or(0)).map_or("None".to_string(), |s| s.to_string()),
-        args.output_dir
-    );
-    let instance = generator_implementation.generate(args.size, args.seed.unwrap_or(0));
-    instance
-        .to_file(&args.output_dir)
-        .expect("Failed to save generated instance to file");
-    println!("Generated instance saved to {:?}", args.output_dir);
-}
-
-pub fn run_verifier<V>(verifier_implementation: V)
-where
-    V: Verifier,
-{
-    let args = VerifierArgs::parse();
-    println!(
-        "Running verifier with input: {:?}, output: {:?}",
-        args.input, args.output
-    );
-
-    // Load problem
-    let problem = V::Problem::from_file(&args.input).expect("Failed to load problem from file");
-
-    // Load solution
-    let solution = V::Solution::from_file(&args.output).expect("Failed to load solution from file");
-
-    // Verify solution
-    let is_valid = verifier_implementation.verify(&problem, &solution);
-
-    if is_valid {
-        println!("The solution is valid.");
-    } else {
-        println!("The solution is invalid.");
-    }
+    info!("Solution saved to {:?}", args.output_file);
 }

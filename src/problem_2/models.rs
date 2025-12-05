@@ -1,11 +1,16 @@
 use crate::file_handler::{read_from_file, write_to_file};
 use crate::{Result, SchedulableProblem, SchedulableSolution};
+use log::debug;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::path::Path;
+
+/// Standardization Factor for floating point to integer conversion
+pub const STANDARDIZATION_FACTOR: i64 = 10;
 
 /// Immutable copy of the problem instance data
 /// Clone is cheap if we wrap Vec<Job> in Arc
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Job {
     pub id: usize,
     pub p_j: i64, // Czas bazowy (w skali, np. * 1000)
@@ -14,6 +19,7 @@ pub struct Job {
 }
 
 /// Machine capable of processing jobs
+#[derive(Clone, Copy)]
 pub struct Machine {
     /// machine identifier
     pub id: usize,
@@ -22,6 +28,7 @@ pub struct Machine {
 }
 
 /// Result of scheduling a job on a machine
+#[derive(Clone)]
 pub struct JobResult {
     /// job identifier
     pub job_id: usize,
@@ -58,6 +65,14 @@ impl PartialOrd for MachineState {
     }
 }
 
+/// Priority rule trait for job scheduling
+pub trait PriorityRule: Send + Sync {
+    fn name(&self) -> &str;
+    /// Calculate priority of a job at current time
+    fn calculate(&self, t_current: i64, job: &Job) -> i64;
+}
+
+#[derive(Clone)]
 pub struct Instance {
     /// number of jobs
     pub n: usize,
@@ -108,7 +123,8 @@ impl SchedulableProblem for Instance {
                 for (i, part) in machine_line_parts.iter().enumerate() {
                     let machine = Machine {
                         id: i,
-                        b_k: part.parse().unwrap(),
+                        b_k: (part.parse::<f32>().unwrap() * STANDARDIZATION_FACTOR as f32).trunc()
+                            as i64,
                     };
                     machines.push(machine);
                 }
@@ -137,7 +153,10 @@ impl SchedulableProblem for Instance {
         let mut content = String::new();
         content.push_str(&format!("{}\n", self.n));
         for machine in &self.machines {
-            content.push_str(&format!("{} ", machine.b_k));
+            content.push_str(&format!(
+                "{} ",
+                machine.b_k as f32 / STANDARDIZATION_FACTOR as f32
+            ));
         }
         content.push_str("\n");
         for job in &self.jobs {
@@ -149,12 +168,52 @@ impl SchedulableProblem for Instance {
 }
 
 impl SchedulableSolution for Solution {
-    fn calculate_score(&self) -> i64 {
-        let mut total_tardy_work = 0;
+    type Problem = Instance;
+
+    fn calculate_score(&self, instance: &Self::Problem) -> i64 {
+        let mut total_tardy_work: f64 = 0.0;
+        let mut machine_times: HashMap<usize, i64> = HashMap::new();
+
+        debug!(
+            "Calculating score for solution with {} job results",
+            self.job_results.len()
+        );
+
         for result in &self.job_results {
-            total_tardy_work += result.tardy_work;
+            let job = &instance.jobs[result.job_id - 1];
+            debug!(
+                "Processing Job {} on Machine {}: p_j={}, r_j={}, d_j={}",
+                job.id, result.machine_id, job.p_j, job.r_j, job.d_j
+            );
+            let completion_time;
+            if machine_times.contains_key(&result.machine_id) {
+                completion_time = job.r_j.max(machine_times[&result.machine_id])
+                    + job.p_j * instance.machines[result.machine_id].b_k / STANDARDIZATION_FACTOR;
+                machine_times.insert(result.machine_id, completion_time);
+            } else {
+                completion_time = job.r_j
+                    + job.p_j * instance.machines[result.machine_id].b_k / STANDARDIZATION_FACTOR;
+                machine_times.insert(result.machine_id, completion_time);
+            }
+            debug!(
+                "Job {} completion time on Machine {}: {}",
+                job.id, result.machine_id, completion_time
+            );
+
+            let b_k: f64 =
+                instance.machines[result.machine_id].b_k as f64 / STANDARDIZATION_FACTOR as f64;
+            let tardy_work: f64 =
+                (job.p_j as f64 * b_k).min((completion_time - job.d_j).max(0) as f64) / b_k;
+            debug!(
+                "Job {} tardy work on Machine {}: {}",
+                job.id, result.machine_id, tardy_work
+            );
+            total_tardy_work += tardy_work
         }
-        total_tardy_work
+
+        debug!("Total tardy work (score): {}", total_tardy_work);
+
+        total_tardy_work.trunc() as i64
     }
 
     fn from_file(path: &Path) -> Result<Self> {
@@ -166,9 +225,8 @@ impl SchedulableSolution for Solution {
 
         // Parse content
         let lines = content.lines();
-        let mut strategy = String::new();
         let mut score = 0;
-        let mut job_results = Vec::new();
+        let mut job_results: Vec<JobResult> = Vec::new();
 
         for (i, line) in lines.enumerate() {
             let trimmed = line.trim();
@@ -176,24 +234,22 @@ impl SchedulableSolution for Solution {
                 continue;
             }
             if i == 0 {
-                strategy = trimmed.replace("Strategy: ", "");
-            } else if i == 1 {
-                let score_part = trimmed.replace("Score: ", "");
-                score = score_part.parse().unwrap();
+                score = trimmed.parse().unwrap();
             } else {
                 let parts: Vec<&str> = trimmed.split_whitespace().collect();
-                let job_result = JobResult {
-                    job_id: parts[1].parse().unwrap(),
-                    machine_id: parts[4].parse().unwrap(),
-                    completion_time: parts[7].parse().unwrap(),
-                    tardy_work: parts[10].parse().unwrap(),
-                };
-                job_results.push(job_result);
+                for s in parts {
+                    job_results.push(JobResult {
+                        job_id: s.parse().unwrap(),
+                        machine_id: i - 1,
+                        completion_time: 0,
+                        tardy_work: 0,
+                    });
+                }
             }
         }
 
         Ok(Solution {
-            strategy,
+            strategy: "unknown".to_string(),
             score,
             job_results,
         })
@@ -201,13 +257,19 @@ impl SchedulableSolution for Solution {
 
     fn to_file(&self, path: &Path) -> Result<()> {
         let mut content = String::new();
-        content.push_str(&format!("Strategy: {}\n", self.strategy));
-        content.push_str(&format!("Score: {}\n", self.score));
+        content.push_str(&format!("{}\n", self.score));
+        let mut machine_results: HashMap<usize, Vec<usize>> = HashMap::new();
         for result in &self.job_results {
-            content.push_str(&format!(
-                "Job {} on Machine {}: Completion Time {}, Tardy Work {}\n",
-                result.job_id, result.machine_id, result.completion_time, result.tardy_work
-            ));
+            machine_results
+                .entry(result.machine_id)
+                .or_insert_with(Vec::new)
+                .push(result.clone().job_id);
+        }
+        for machine_id in 0..machine_results.len() {
+            for job_id in &machine_results[&machine_id] {
+                content.push_str(&format!("{} ", job_id));
+            }
+            content.push_str("\n");
         }
         write_to_file(path, &content);
         Ok(())

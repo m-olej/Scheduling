@@ -1,12 +1,10 @@
-use crate::problem_2::models::{Instance, Job, Machine};
+use crate::problem_2::models::{Instance, Job, Machine, STANDARDIZATION_FACTOR};
 use crate::ProblemGenerator;
-use rand::{rng, Rng};
-
-pub struct Generator {
-    pub size: usize,
-    /// Optional seed for reproducibility (NotImplemented)
-    pub seed: Option<u64>,
-}
+use rand::rand_core::block::BlockRng;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Core;
+use std::iter;
+pub struct Generator {}
 
 const MAX_B_K: f32 = 2.0;
 const MIN_B_K: f32 = 1.0;
@@ -15,7 +13,7 @@ const MAX_P_J: i64 = 1000;
 const MIN_R_J: i64 = 0;
 const MAX_R_J: i64 = 500;
 const MIN_D_J: i64 = 100;
-const MAX_D_J: i64 = 5000;
+const MAX_D_J: i64 = 600;
 
 impl ProblemGenerator for Generator {
     type Problem = Instance;
@@ -24,13 +22,13 @@ impl ProblemGenerator for Generator {
         let n = size;
         let m = 5;
 
-        let mut rng = rng();
+        let mut rng: BlockRng<ChaCha8Core> = BlockRng::seed_from_u64(seed);
 
         let jobs: Vec<Job> = (0..n)
             .map(|i| {
-                let r_j = rng.gen_range(MIN_R_J..MAX_R_J);
-                let p_j = rng.gen_range(MIN_P_J..MAX_P_J);
-                let d_j = rng.gen_range((r_j + p_j + MIN_D_J)..(r_j + p_j + MAX_D_J));
+                let r_j = rng.random_range(MIN_R_J..MAX_R_J);
+                let p_j = rng.random_range(MIN_P_J..MAX_P_J);
+                let d_j = rng.random_range((r_j + p_j + MIN_D_J)..(r_j + p_j + MAX_D_J));
                 Job {
                     id: i,
                     p_j,
@@ -40,11 +38,12 @@ impl ProblemGenerator for Generator {
             })
             .collect();
 
-        let machines: Vec<Machine> = (0..m)
-            .map(|i| Machine {
+        let machines: Vec<Machine> = iter::once(Machine { id: 0, b_k: 10 })
+            .chain((1..m).map(|i| Machine {
                 id: i,
-                b_k: rng.gen_range(MIN_B_K..MAX_B_K),
-            })
+                b_k: (rng.random_range(MIN_B_K..MAX_B_K) * STANDARDIZATION_FACTOR as f32).trunc()
+                    as i64,
+            }))
             .collect();
 
         // Dummy implementation

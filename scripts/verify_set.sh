@@ -36,8 +36,8 @@ for dir in ${DATASET_DIR}/*; do
 
         echo "-------:-------"
         echo "Verifying input file: $instance"
-        ./$VERIFIER $instance
-        $VERIFIER $solution $instance
+        ./$VERIFIER --instance-file $instance
+        ./$VERIFIER --solution-file $solution --instance-file $instance
     done
     echo "-------:-------"
 done
