@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Rust: Select Binary",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/p2_solver",
+            "args": [
+               "--input-instance",
+               "./data/p2/prod/155827/IN/in_155827_50.txt",
+               "--output-file",
+               "./data/p2/prod_out/results/out_155927_155827_50.txt"
+            ],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "cargo build p2_solver",
+            "sourceLanguages": ["rust"]
+        },
+    ]
+}

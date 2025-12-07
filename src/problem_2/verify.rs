@@ -1,9 +1,27 @@
-use crate::problem_2::models::{Instance, Solution};
+use crate::problem_2::models::{Instance, JobResult, Solution};
 use crate::ProblemVerifier;
 use crate::SchedulableSolution;
-use ::log::{error, warn};
+use ::log::{debug, error, warn};
 
 pub struct Verifier {}
+
+fn calculate_completion_times(instance: &Instance, job_results: &Vec<JobResult>) -> Vec<JobResult> {
+    let mut machine_times: Vec<f64> = vec![0.0; instance.m];
+    let mut filled_job_results = job_results.clone();
+
+    for result in &mut filled_job_results {
+        let job = &instance.jobs[result.job_id];
+        let machine = &instance.machines[result.machine_id];
+
+        let start_time = machine_times[result.machine_id].max(job.r_j as f64);
+        let finish_time = start_time + job.p_j as f64 * machine.b_k;
+
+        machine_times[result.machine_id] = finish_time;
+        result.completion_time = finish_time;
+    }
+
+    filled_job_results
+}
 
 impl ProblemVerifier for Verifier {
     type Problem = Instance;
@@ -21,15 +39,19 @@ impl ProblemVerifier for Verifier {
             return false;
         }
         // Machine attributes (b_k) format
-        if machines[0].b_k != 10 {
-            error!(
-                "Machine 0 has invalid b_k value: {} (expected 10)",
-                machines[0].b_k
-            );
+        let mut machine_bk_check = false;
+        for machine in machines {
+            if machine.b_k == 1.0 {
+                machine_bk_check = true;
+            }
+        }
+        if !machine_bk_check {
+            error!("At least one machine has b_k not equal to 1.0");
             return false;
         }
+
         for machine in &machines[1..] {
-            if machine.b_k < 10 || machine.b_k > 20 {
+            if machine.b_k < 1.0 || machine.b_k > 2.0 {
                 error!(
                     "Machine {} has invalid b_k value: {}",
                     machine.id, machine.b_k
@@ -72,10 +94,11 @@ impl ProblemVerifier for Verifier {
 
         // score
         let calculated_score = solution.calculate_score(instance);
-        if calculated_score != solution.score {
+        if calculated_score != solution.score.round().trunc() as i64 {
             println!(
                 "Solution score mismatch: calculated {}, but solution has {}",
-                calculated_score, solution.score
+                calculated_score,
+                solution.score.round().trunc() as i64
             );
             return false;
         }
@@ -83,7 +106,7 @@ impl ProblemVerifier for Verifier {
         // Scheduling validity
         let n = instance.n;
         let jobs = &instance.jobs;
-        let job_results = &solution.job_results;
+        let job_results = calculate_completion_times(instance, &solution.job_results);
 
         // Job count
         if job_results.len() != n {
@@ -98,9 +121,14 @@ impl ProblemVerifier for Verifier {
         // Job scheduling attributes validity
         for job_result in job_results {
             let job = &jobs[job_result.job_id];
-            let job_start_time = job_result.completion_time - job.p_j;
+            let duration = job.p_j as f64 * instance.machines[job_result.machine_id].b_k;
+            let job_start_time = job_result.completion_time as f64 - duration;
+            debug!(
+                "Verifying Job {} on Machine {}: duration {} start_time {} completion_time {}",
+                job.id, job_result.machine_id, duration, job_start_time, job_result.completion_time
+            );
             // Start time >= release time
-            if job_start_time < job.r_j {
+            if job_start_time.round() < job.r_j as f64 {
                 println!(
                     "Job {} starts before its release time: start_time {} < r_j {}",
                     job.id, job_start_time, job.r_j

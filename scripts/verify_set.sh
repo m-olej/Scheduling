@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if [ "$#" -ne 2 ]; then
     echo "Illegal number of parameters"
     echo "Usage: $0 <dataset_directory> <verifier_executable>"
@@ -37,7 +39,7 @@ for dir in ${DATASET_DIR}/*; do
         echo "-------:-------"
         echo "Verifying input file: $instance"
         ./$VERIFIER --instance-file $instance
-        ./$VERIFIER --solution-file $solution --instance-file $instance
+        ./$VERIFIER --instance-file $instance $solution 
     done
     echo "-------:-------"
 done

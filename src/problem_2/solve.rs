@@ -34,14 +34,19 @@ impl ProblemSolver<'_> for Solver {
                 let machines_clone = Arc::clone(&machines_arc);
 
                 // Każdy wątek wykonuje pełną, niezależną symulację
-                run_simulation(&jobs_clone, &machines_clone, rule.as_ref())
+
+                // greedy
+                // run_simulation(&jobs_clone, &machines_clone, rule.as_ref())
+
+                // beam search with pilot
+                run_beam_search(&jobs_clone, &machines_clone, rule.as_ref())
             })
             .collect();
 
         // 3. Znajdź najlepszy deterministyczny wynik
         let best_result = results
             .iter()
-            .min_by_key(|res| res.total_tardy_work)
+            .min_by(|a, b| a.total_tardy_work.total_cmp(&b.total_tardy_work))
             .expect("Symulacje nie dały żadnych wyników");
 
         info!("Najlepsza reguła: {}", best_result.rule_name);

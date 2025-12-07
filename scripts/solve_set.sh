@@ -21,44 +21,51 @@ tm_millisecs() {
 }
 
 echo Running dataset: $DATASET_DIR
+echo Output directory: $OUTPUT_DIR/results and $OUTPUT_DIR/time
 
-for dir in ${DATASET_DIR}/*; do
-    IFS='/' read -ra ADDR <<< "$dir"
-    DATA_INDEX=${ADDR[-1]}
-    if [ -d "$dir/in" ]; then
-        mv "$dir/in" "$dir/IN"
-    fi
-    if [ -d "$dir/out" ]; then
-        mv "$dir/out" "$dir/OUT"
-    fi
-    echo "Solving dataset index: $DATA_INDEX"
-    for instance in ${DATASET_DIR}/${DATA_INDEX}/IN/*; do
-        IFS='/' read -ra ADDR2 <<< "$instance"
-        input=${ADDR2[-1]}
-        IFS='_' read -ra ADDR3 <<< "${input:0:-4}"
-        instance_size=${ADDR3[-1]}
-        echo "  Solving size: $instance_size" 
-        input_file=${DATASET_DIR}/${DATA_INDEX}/IN/${input}
-        output_file=${OUTPUT_DIR}/out_${INDEX}_${DATA_INDEX}_${instance_size}.txt
-        echo "    Input file: $input_file"
-        echo "    Output file: $output_file"
-        RUST_LOG=DEBUG tm_millisecs $SOLVER --input-instance $input_file --output-file $output_file 2>&1 >> ${OUTPUT_DIR}/out_${INDEX}_${DATA_INDEX}_${instance_size}_time.txt
-        echo "    Done."
-    done
-done
+mkdir -p $OUTPUT_DIR/results
+mkdir -p $OUTPUT_DIR/time
+
+RESULT_DIR=$OUTPUT_DIR/results
+TIME_DIR=$OUTPUT_DIR/time
+
+# for dir in ${DATASET_DIR}/*; do
+#     IFS='/' read -ra ADDR <<< "$dir"
+#     DATA_INDEX=${ADDR[-1]}
+#     if [ -d "$dir/in" ]; then
+#         mv "$dir/in" "$dir/IN"
+#     fi
+#     if [ -d "$dir/out" ]; then
+#         mv "$dir/out" "$dir/OUT"
+#     fi
+#     echo "Solving dataset index: $DATA_INDEX"
+#     for instance in ${DATASET_DIR}/${DATA_INDEX}/IN/*; do
+#         IFS='/' read -ra ADDR2 <<< "$instance"
+#         input=${ADDR2[-1]}
+#         IFS='_' read -ra ADDR3 <<< "${input:0:-4}"
+#         instance_size=${ADDR3[-1]}
+#         echo "  Solving size: $instance_size" 
+#         input_file=${DATASET_DIR}/${DATA_INDEX}/IN/${input}
+#         output_file=${RESULT_DIR}/out_${INDEX}_${DATA_INDEX}_${instance_size}.txt
+#         echo "    Input file: $input_file"
+#         echo "    Output file: $output_file"
+#         RUST_LOG=DEBUG tm_millisecs $SOLVER --input-instance $input_file --output-file $output_file 2>&1 >> ${TIME_DIR}/out_${INDEX}_${DATA_INDEX}_${instance_size}_time.txt
+#         echo "    Done."
+#     done
+# done
 
 echo "Creating paste file..."
 
 INDEX_ORDER=( 155925 155878 155827 155855 155904 155935 155942 155927 150252 155997 155859 155915 )
 SIZE_ORDER=( 50 100 150 200 250 300 350 400 450 500 )
 
-paste_file=${OUTPUT_DIR}/paste_${INDEX}.txt
-time_paste_file=${OUTPUT_DIR}/time_paste_${INDEX}.txt
+paste_file=${RESULT_DIR}/paste_${INDEX}.txt
+time_paste_file=${TIME_DIR}/time_paste_${INDEX}.txt
 
 for index in "${INDEX_ORDER[@]}"; do
     for size in "${SIZE_ORDER[@]}"; do
-        output_file=${OUTPUT_DIR}/out_${INDEX}_${index}_${size}.txt
-        time_output_file=${OUTPUT_DIR}/out_${INDEX}_${index}_${size}_time.txt
+        output_file=${RESULT_DIR}/out_${INDEX}_${index}_${size}.txt
+        time_output_file=${TIME_DIR}/out_${INDEX}_${index}_${size}_time.txt
         echo "  Processing output file: $output_file"
         score=$(head -n 1 $output_file | cut -d' ' -f2) || echo ""
         time=$(cat $time_output_file) || echo ""

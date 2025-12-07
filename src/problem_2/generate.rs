@@ -1,4 +1,4 @@
-use crate::problem_2::models::{Instance, Job, Machine, STANDARDIZATION_FACTOR};
+use crate::problem_2::models::{Instance, Job, Machine};
 use crate::ProblemGenerator;
 use rand::rand_core::block::BlockRng;
 use rand::{Rng, SeedableRng};
@@ -38,11 +38,10 @@ impl ProblemGenerator for Generator {
             })
             .collect();
 
-        let machines: Vec<Machine> = iter::once(Machine { id: 0, b_k: 10 })
+        let machines: Vec<Machine> = iter::once(Machine { id: 0, b_k: 1.0 })
             .chain((1..m).map(|i| Machine {
                 id: i,
-                b_k: (rng.random_range(MIN_B_K..MAX_B_K) * STANDARDIZATION_FACTOR as f32).trunc()
-                    as i64,
+                b_k: (rng.random_range(MIN_B_K..MAX_B_K)).trunc() as f64,
             }))
             .collect();
 

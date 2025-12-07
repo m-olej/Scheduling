@@ -1,5 +1,4 @@
-use crate::problem_2::models::Job;
-use crate::problem_2::models::PriorityRule;
+use crate::problem_2::models::{Job, Machine, PriorityRule};
 
 #[allow(non_camel_case_types)]
 pub struct A_EDD {}
@@ -9,8 +8,8 @@ impl PriorityRule for A_EDD {
         "A-EDD"
     }
 
-    fn calculate(&self, _t_current: i64, job: &Job) -> i64 {
-        -job.d_j
+    fn calculate(&self, _t_current: f64, job: &Job, machine: &Machine) -> f64 {
+        -job.d_j as f64
     }
 }
 
@@ -22,8 +21,8 @@ impl PriorityRule for A_SPT {
         "A-SPT"
     }
 
-    fn calculate(&self, _t_current: i64, job: &Job) -> i64 {
-        -job.p_j
+    fn calculate(&self, _t_current: f64, job: &Job, machine: &Machine) -> f64 {
+        -job.p_j as f64 * machine.b_k
     }
 }
 
@@ -35,8 +34,8 @@ impl PriorityRule for A_MDD {
         "A-MDD"
     }
 
-    fn calculate(&self, _t_current: i64, job: &Job) -> i64 {
-        -job.r_j
+    fn calculate(&self, _t_current: f64, job: &Job, machine: &Machine) -> f64 {
+        -job.r_j as f64
     }
 }
 
@@ -48,12 +47,12 @@ impl PriorityRule for ATC {
         "ATC"
     }
 
-    fn calculate(&self, t_current: i64, job: &Job) -> i64 {
-        let slack = (job.d_j - t_current - job.p_j).max(0);
-        if slack == 0 {
-            0
+    fn calculate(&self, t_current: f64, job: &Job, machine: &Machine) -> f64 {
+        let slack = (job.d_j as f64 - t_current - job.p_j as f64 * machine.b_k).max(0.0);
+        if slack == 0.0 {
+            0.0
         } else {
-            job.p_j / slack
+            job.p_j as f64 * machine.b_k / slack
         }
     }
 }
@@ -66,7 +65,7 @@ impl PriorityRule for LS {
         "LS"
     }
 
-    fn calculate(&self, _t_current: i64, job: &Job) -> i64 {
-        -(job.r_j + job.p_j)
+    fn calculate(&self, _t_current: f64, job: &Job, machine: &Machine) -> f64 {
+        -(job.r_j as f64 + job.p_j as f64 * machine.b_k)
     }
 }
