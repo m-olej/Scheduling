@@ -8,7 +8,7 @@ impl PriorityRule for A_EDD {
         "A-EDD"
     }
 
-    fn calculate(&self, _t_current: f64, job: &Job, machine: &Machine) -> f64 {
+    fn calculate(&self, _t_current: f64, job: &Job, _machine: &Machine) -> f64 {
         -job.d_j as f64
     }
 }
@@ -34,7 +34,7 @@ impl PriorityRule for A_MDD {
         "A-MDD"
     }
 
-    fn calculate(&self, _t_current: f64, job: &Job, machine: &Machine) -> f64 {
+    fn calculate(&self, _t_current: f64, job: &Job, _machine: &Machine) -> f64 {
         -job.r_j as f64
     }
 }

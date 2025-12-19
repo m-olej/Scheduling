@@ -1,0 +1,5 @@
+--size
+50
+--output-file
+./data/example/output.txt
+42

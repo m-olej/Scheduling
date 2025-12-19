@@ -3,13 +3,15 @@ use log::info;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 pub mod file_handler;
+pub mod problem_1;
 pub mod problem_2;
+pub mod problem_3;
 
 ///
 /// Library generic traits
 ///
 
-/// A generic result type for your library
+/// A generic result type
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 /// Data Model Traits (for loading/saving)
@@ -50,8 +52,9 @@ pub trait ProblemSolver<'a> {
     fn solve(&self, problem: &mut Self::Problem) -> Self::Solution;
 }
 
-/// Drivers
-
+/// Solver program for scheduling problems
+///
+/// This function runs a solver implementation that solves given problem instances
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct SolverArgs {
@@ -73,9 +76,9 @@ struct GeneratorArgs {
     /// Size of the instance to generate (number of jobs)
     #[arg(short, long)]
     size: usize,
-    /// Output directory
+    /// Output file
     #[arg(short, long)]
-    output_dir: PathBuf,
+    output_file: PathBuf,
     /// Optional seed argument
     seed: Option<u64>,
 }
@@ -93,11 +96,62 @@ struct VerifierArgs {
     solution_file: Option<PathBuf>,
 }
 
+/// Custom parser that intercepts "--config" to load args from a file
+pub fn parse_args<T: Parser>() -> T {
+    let mut args: Vec<String> = std::env::args().collect();
+
+    // 1. VS CODE FIX:
+    // If we received exactly 1 argument (besides binary name) and it looks like a full command string...
+    if args.len() == 2 && (args[1].starts_with('-') && args[1].contains(' ')) {
+        // ...attempt to split it using shell rules
+        if let Some(split) = shlex::split(&args[1]) {
+            // Reconstruct args: [binary_name, split_arg_1, split_arg_2, ...]
+            let binary_name = args[0].clone();
+            args = vec![binary_name];
+            args.extend(split);
+        }
+    }
+
+    // 2. Check if "--config <FILE>" is present
+    if let Some(index) = args.iter().position(|arg| arg == "--config") {
+        if let Some(path_str) = args.get(index + 1) {
+            let path = PathBuf::from(path_str);
+
+            // 3. Read and parse the file content
+            match std::fs::read_to_string(&path) {
+                Ok(content) => {
+                    // split string into args (e.g. "foo 'bar baz'" -> ["foo", "bar baz"])
+                    if let Some(mut file_args) = shlex::split(&content) {
+                        // clap expects the first argument to be the binary name
+                        file_args.insert(0, args[0].clone());
+
+                        // Parse the struct from the file tokens
+                        return T::parse_from(file_args);
+                    } else {
+                        eprintln!(
+                            "Error: Could not parse arguments from config file: {:?}",
+                            path
+                        );
+                        std::process::exit(1);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error reading config file {:?}: {}", path, e);
+                    std::process::exit(1);
+                }
+            }
+        }
+    }
+
+    // 4. Fallback: Parse standard CLI arguments if no config file is found
+    T::parse_from(args)
+}
+
 pub fn run_generator<G>(generator_implementation: G)
 where
     G: ProblemGenerator,
 {
-    let args = GeneratorArgs::parse();
+    let args = parse_args::<GeneratorArgs>();
     // handle optional seed
     let seed = match args.seed {
         Some(seed) => seed,
@@ -106,21 +160,21 @@ where
 
     println!(
         "Running generator with size: {}, seed: {}, output: {:?}",
-        args.size, seed, args.output_dir
+        args.size, seed, args.output_file
     );
 
     let instance = generator_implementation.generate(args.size, seed);
     instance
-        .to_file(&args.output_dir)
+        .to_file(&args.output_file)
         .expect("Failed to save generated instance to file");
-    println!("Generated instance saved to {:?}", args.output_dir);
+    println!("Generated instance saved to {:?}", args.output_file);
 }
 
 pub fn run_verifier<V>(verifier_implementation: V)
 where
     V: ProblemVerifier,
 {
-    let args = VerifierArgs::parse();
+    let args = parse_args::<VerifierArgs>();
     println!(
         "Running verifier with instance: {:?}, solution: {:?}",
         args.instance_file, args.solution_file
@@ -158,7 +212,7 @@ pub fn run_solver<S>(solver_implementation: S)
 where
     S: for<'a> ProblemSolver<'a>,
 {
-    let args = SolverArgs::parse();
+    let args = parse_args::<SolverArgs>();
     info!(
         "Running solver with input: {:?}, output: {:?}",
         args.input_instance, args.output_file
