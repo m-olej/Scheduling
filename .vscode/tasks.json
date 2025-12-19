@@ -1,0 +1,36 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "cargo build dynamic",
+            "type": "shell",
+            "command": "cargo",
+            "args": [
+                "build",
+                "--bin",
+                "${input:binaryPrefix}_${input:binaryType}" // Uses inputs defined below
+            ],
+            "group": "build",
+            "problemMatcher": ["$rustc"]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "binaryPrefix",
+            "type": "promptString",
+            "description": "Enter Binary Prefix",
+            "default": "p2"
+        },
+        {
+            "id": "binaryType",
+            "type": "pickString",
+            "description": "Select Binary Type",
+            "options": [
+                "solver",
+                "generator",
+                "verifier"
+            ],
+            "default": "solver"
+        }
+    ]
+}

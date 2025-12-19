@@ -1,0 +1,58 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Dynamic Rust",
+            "type": "lldb",
+            "request": "launch",
+            // 1. Construct the binary path dynamically
+            "program": "${workspaceFolder}/target/debug/${input:binaryPrefix}_${input:binaryType}",
+            
+            // 2. Load arguments based on the selected type (See Input section below)
+            "args": ["${input:dynamicArgs}"], 
+            
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "cargo build dynamic",
+            "sourceLanguages": ["rust"],
+            "env": {
+                "RUST_BACKTRACE": "1"
+            }
+        }
+    ],
+    "inputs": [
+        // These IDs must match tasks.json exactly so VS Code (usually) asks only once
+        {
+            "id": "binaryPrefix",
+            "type": "promptString",
+            "description": "Enter Binary Prefix",
+            "default": "p2"
+        },
+        {
+            "id": "binaryType",
+            "type": "pickString",
+            "description": "Select Binary Type",
+            "options": ["solver", "generator", "verifier"],
+            "default": "solver"
+        },
+        // MAPPING TYPES TO ARGUMENTS
+        {
+            "id": "dynamicArgs",
+            "type": "pickString",
+            "description": "Select Arguments for this Run",
+            "options": [
+                {
+                    "label": "Solver Args", 
+                    "value": "--config ./.vscode/solver.args"
+                },
+                {
+                    "label": "Generator Args", 
+                    "value": "--config ./.vscode/generator.args"
+                },
+                {
+                    "label": "Verifier Args", 
+                    "value": "--config ./.vscode/verifier.args"
+                }
+            ]
+        }
+    ]
+}

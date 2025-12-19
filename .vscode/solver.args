@@ -1,0 +1,4 @@
+--input-instance
+./data/example/instance.txt
+--output-file
+./data/example/solution.txt
